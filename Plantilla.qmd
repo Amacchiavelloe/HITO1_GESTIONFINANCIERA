@@ -1,0 +1,249 @@
+---
+title: "Plantilla Proyecto"
+author: "Alumno"
+format: html
+editor: visual
+---
+
+```{r configuraciones}
+#| message: false
+#| echo: false
+# Esto ya debiera estar cargado en el proyecto en posit.cloud
+# devtools::install_github("business-science/tidyquant")
+# Loads tidyquant, lubridate, xts, quantmod, TTR, and PerformanceAnalytics
+library(tidyverse)
+library(tidyquant)  
+```
+
+## Descripción Activo y Contexto (Hito 1)
+
+Fecha de entrega: Jueves 28 de Septiembre 23:59.
+
+### Definición
+
+El activo a estudiar en energía es Enel Chile, una empresa que se dedica a la generación y distribución de energía eléctrica en Chile. Genera energías por medio de diferentes instalaciones y plantas de generación como serían hidroeléctricas, solares y termoeléctricas. Además, en términos de distribución, representa el 27% de la potencia instalada en el sistema eléctrico nacional distribuyendo energía eléctrica a más de 2 millones de personas en la Región Metropolitana. Enel Chile pertenece a Enel SPA o Grupo Enel, la cual es una de las compañías energéticas más grandes e importantes del mundo. Esta empresa, en términos de contaminación, innovación y sostenibilidad ha buscado mejorar su impacto medioambiental, y al ser tener plantas de generaciones eléctricas en Chile y ser parte de una multinacional, está involucrada en las iniciativas y propuestas medioambientales relacionadas con el Acuerdo de París hecho en el año 2017. según la: Revisión y evaluación de la evolución de la política energética en Chile, publicado en 2019.
+
+Referencias:
+
+Revisión y evaluación de la evolución de la política energética en Chile, publicado en 2019 por Simsek, Y.( Simsek, Yeliz ) ;Lorca, A.( Lorca, Álvaro ) ; Urmée, T.( Urmee, Tania ) ; Bahri, Pensilvania, EE.UU.( Bahri, Parisa A. ) ; Escobar, R.( Escobar, Rodrigo )
+
+https://www.webofscience.com/wos/woscc/full-record/WOS:000463688200010
+
+```{r ETL}
+#| echo: false
+# Alternativamente Use FANG data set
+# data("FANG") 
+end <- as_date("2022-12-31")
+# Get AAPL and AMZN Stock Prices
+# AAPL <- tq_get("AAPL", get = "stock.prices", from = "2015-09-01", to = end)
+# AMZN <- tq_get("AMZN", get = "stock.prices", from = "2000-01-01", to = end)
+ENELAM <- tq_get("ENELAM.SN", get = "stock.prices", from = "2000-01-01", to = end)
+CL=F <- tq_get("CL=F", get = "stock.prices", from = "2000-01-01", to = end)
+CLP=X<- tq_get("CLP=X", get = "stock.prices", from = "2000-01-01", to = end)
+ENELCHILE <- tq_get("ENELCHILE.SN", get = "stock.prices", from = "2000-01-01", to = end)
+CL <- rbind(ENELAM,CL=F,CLP=X)
+```
+
+El activo CMPC tiene un valor promedio para el intervalo igual a `r round(mean(CMPC$close),digits=0)`
+
+```{r ENELCHILEline}
+#| echo: false
+ENELCHILE %>%
+    ggplot(aes(x = date, y = close)) +
+    geom_line() +
+    labs(title = "ENELCHILE Line Chart", y = "Closing Price", x = "") + 
+    theme_tq() +
+  geom_hline(yintercept=mean(ENELCHILE$close), linetype="dashed", color = "red")
+```
+
+```{r ENELCHILEcandle}
+#| warning: false
+ENELCHILE %>%
+    ggplot(aes(x = date, y = close)) +
+    geom_candlestick(aes(open = open, high = high, low = low, close = close)) +
+    labs(title = "ENELCHILE Candlestick Chart", y = "Closing Price", x = "") +
+    theme_tq()
+```
+
+### Motivación
+
+Se busca estudiar y analizar la empresa Enel Chile, debido a que es una de las empresas de energía más importantes y grandes del país, además de formar parte de unas de las multinacionales más grandes de energía eléctrica. Además, es interesante como las empresas de energía se deben adapatar a los cambios ambientales, con nuevas propuestas de innovación y analizar como pueden seguir generando valor a largo plazo en conjunto con estas propuestas, debido a que el objetivo nacional actual es que al menos el 70% de la electricidad en Chile se genere a partir de fuentes de energía renovables para 2050, según: Revisión y evaluación de la evolución de la política energética en Chile.
+
+### Contexto
+
+Las 3 variables/activos que se describen (estadísticamente) son la empresa ENELAM, el precio del petróleo y del dólar, debido a que pueden influenciar el precio de la acción de ENELCHILE.
+
+ENELCHILE Chile, forma parte al igual que Enel América de Enel, por lo que los cambios en los precios de ENELCHILE pueden variar dependiendo de los cambios ocurridos en los precios de ENELAM, ya que, además de formar parte de la misma empresa, comparten en el mercado energético de Chile.
+
+Siguiendo esta idea, el precio del pétroleo también puede influir en el precio de la acción de esta emrpesa, debido a que se relaciona con el sector energético, por ejemplo si el precio del petroleo sube puede aumentar el costo de generación de energía en las plantas hidroeléctricas o termoeléctricas, que a su vez ocupan este combustible para funcionar. Además, de ser competencia en el mercado energético.
+
+Por último el precio del dólar también influye en la empresa Enel Chile, debido al impacto que tiene el dólar en la economía nacional, que puede afectar las inversiones en Chile y por consiguiente al precio de la acción de Enel. También, puede afectar a la empresa si es que esta tiene gastos o ingresos en dólares, dependiendo del tipo de cambio.
+
+```{r context}
+#| warning: false
+#| echo: false
+start <- end - weeks(6)
+
+CL %>%
+    filter(date >= start - days(2 * 15)) %>%
+    ggplot(aes(x = date, y = close, group = symbol)) +
+    geom_candlestick(aes(open = open, high = high, low = low, close = close)) +
+    geom_ma(ma_fun = SMA, n = 15, color = "darkblue", size = 1) +
+    labs(title = "CL Candlestick Chart", 
+         subtitle = "Experimenting with Mulitple Stocks",
+         y = "Closing Price", x = "") + 
+    coord_x_date(xlim = c(start, end)) +
+    facet_wrap(~ symbol, ncol = 2, scale = "free_y") +
+    theme_tq()
+```
+
+### Tareas Semana 4
+
+-   Utilizar otros ejemplos de visualización: https://business-science.github.io/tidyquant/articles/TQ04-charting-with-tidyquant.html
+-   ¿Para que sirven las siguientes líneas en los bloques de código?
+
+```         
+#| warning: false
+#| echo: false
+```
+
+-   Definir activos en base a cada una de las [industrias definidas](https://uandes.instructure.com/courses/28266/pages/proyecto-del-curso): Inmobiliaria, Banca, Energía
+-   Buscar referencias científicas en la literatura para dar contexto al análisis
+
+#### Caracterización deuda (Aplicación cap. 15)
+
+Para el buen cálculo de la deuda de la empresa, esta se divide en deuda a tasa de interés fija y deuda a tasa de interés variable. La deuda fija es aquella que se paga a cupones fijos establecidos previamente en el inicio de la operación. Mientras que la deuda con tasa de interés variable, en el que el valor del cupón se fija en el inicio de cada periodo teniendo una tasa de interés de referencia. La valoración de toda la deuda se ha realizado mediante el descuento de los flujos futuros esperados con la curva de tipos de interés de mercado según la moneda de pago.
+
+Referencias: https://www.enel.cl/content/dam/enel-cl/inversionistas/enel-chile/informacion-para-el-accionista/resultados-trimestrales/estados-financieros/2022/EEFF-Enel-Chile-Dic2022.pdf
+
+#### Caracterización de emisiones históricas (Aplicación cap. 20)
+
+A continuación se evidenciarán las principales emisiones históricas de deuda, pagos de dividendos y acciones.
+
+En el año 2018 Enel Chile hace su primera emisión de un bono norteamericano, por mil millones de dólares a un pazo de 10 años y con un cupón de 4,875%. El bono está destinado a refinanciar gran parte de un crédito puente adquirido en el marco de la OPA lanzada sobre Enel Generación en el contexto del Plan Elqui. El bono fue clasificado como Baa2 por parte de Moody\'s y como BBB+ por parte de S&P.
+
+Referencia: https://www.enel.cl/es/conoce-enel/prensa/press-enel-chile/d201806-enel-chile-realiza-exitosa-primera-emision-de-bono-en-estados-unidos.html
+
+En el año 2020 Enel lanza un bono relacionado con la sostenibilidad. Este bono se encuentra en el mercado de eurobonos con un valos de 1.5 millones de euros, combinando la taxonomía de la Unión Europea con el desarrollo sostenible de Naciones Unidas.
+
+Referencia: https://www.compromisorse.com/rse/2023/02/17/enel-lanza-con-exito-un-bono-vinculado-a-la-sostenibilidad/.
+
+Desde el 2011 la empresa ha realizado activos o paquetes accionarios en 22 ocasiones en:
+
+1.  12/07/2023
+
+2.  12/07/2023
+
+3.  09/12/2022
+
+4.  28/07/2022
+
+5.  07/07/2020
+
+6.  27/05/2020
+
+7.  07/07/2020
+
+8.  25/03/2018
+
+9.  25/03/2018
+
+10. 08/02/2018
+
+11. 22/01/2018
+
+12. 28/03/2018
+
+13. 25/03/2018
+
+14. 13/10/2017
+
+15. 30/08/2017
+
+16. 25/08/2017
+
+17. 25/11/2016
+
+18. 09/06/2016
+
+19. 05/05/2016
+
+20. 27/04/2016
+
+21. 14/04/2016
+
+22. 07/07/2023
+
+Mientras que ha realizado 12 pagas de devidendos en los últimos 12 años en las fechas de:
+
+1.  28/04/2016
+
+2.  29/04/2016
+
+3.  28/04/2017
+
+4.  25/04/2018
+
+5.  25/04/2018
+
+6.  14/05/2018
+
+7.  20/12/2017
+
+8.  29/11/2018
+
+9.  29/04/2019
+
+10. 26/11/2019
+
+11. 25/11/2022
+
+12. 27/04/2022
+
+13. 26/11/2021
+
+14. 29/04/2020
+
+15. 26/04/2023
+
+#### Relación con activos derivados
+
+Las operaciones de derivados financieros sa clasifican como instrumentos de cobertura y se dividen en activos y pasivos.
+
+Los instrumentos derivados de cobertura son: (a la fecha 31.12.2022):
+
+-   Tipo de interés (SWAP), cubriendo contra Obligaciones No Garantizadas (Bonos). VALOR = 8.260.069
+
+-   Flujo de caja (SWAP), cubriendo contra Préstamos Empresas Relacionadas. VALOR = 2.650.478
+
+-   Tipo de cambio (FORWARD), cubriendo contra Ingresos operacionales. VALOR = 2.606.439
+
+-   Flujo de caja (FORWARD), cubriendo contra Inversiones de Propiedades, plantas y equipos. VALOR = 1.592.476)
+
+-   Tasa de interés (FORWARD), cubriendo contra otros. VALOR = 5.198.122
+
+### Reporte grupal
+
+El portafolio está conformado por tres activos del Índice de Precios Selectivo de Acciones (IPSA), de tres industrias distintas; eléctrica, bancaria e inmobiliaria. Para las cuales se escogió Enel, Banco Santander Chile y Cencosud, los nemotécnicos de las acciones seleccionadas de cada empresa son ENELCHILE, BSANTANDER y CENCOSHOPP respectivamente. El objetivo del portafolio es de corto plazo, alrededor de tres meses,  con una aversión al riesgo moderada-baja, sin embargo, hay que considerar que es un portafolio conformado solamente por renta variable, lo que hace que el portafolio sea más riesgoso y por lo tanto más volátil. 
+
+Para poder obtener las ponderaciones del portafolio, se debe realizar un análisis a cada activo por invertir, donde se consideraron los Beta de cada acción y las industrias pertenecientes a cada activo.
+
+Banco Santander está presente en la industria bancaria donde a grandes rasgos las inversiones están asociadas al manejo de carteras adversas al riesgo, al préstamo de créditos y al corretaje de bolsa que genera comisiones. Por lo que en esta industria las rentabilidades son bajas al igual que los riesgos.
+
+Enel Chile es la empresa líder en el sector eléctrico chileno y ha tenido un aumento en activos en el último año. Además, es propietario mayoritario, con el 93% de Enel Generación Chile, 99.09% de Enel distribución Chile y del 100% de Enel Green Power, los cuales también han tenido un incremento en sus activos en el último año. Además, tiene una base de generación de energía diversificada. La empresa tiene un riesgo medio-alto, debido a la industria en la que se encuentra y los desafíos futuros del país. 
+
+Cencoshopp, perteneciente al consorcio Cencosud está invirtiendo fuertemente en Latinoamérica construyendo centros comerciales en Chile, Perú y Colombia. Por lo que, las ganancias que obtengan la empresa serán a largo plazo cuando estas operen, entonces se espera que el valor de la acción continúen creciendo moderadamente como ha sido a lo largo del año.
+
+Según las estadísticas de Yahoo Finance los Betas (5y Monthly) de los activos tienen las siguientes cifras; 0.72 ENELCHILE, 0,42 BSANTANDER, 0,64 CENCOSHOPP.
+
+A este portafolio se le invertirá 10 millones de pesos chilenos con las siguientes ponderaciones:
+
+-   Cencoshopp 20%
+
+-   Enel chile 40%
+
+-   Banco Santander 40%
+
+Este portafolio con aversión al riesgo moderada-baja, se agregó un 40% de ponderación al activo más riesgoso (con mayor beta). Se ponderó un 20% de CENCOSHOPP dado que se espera que no tendrá una profunda volatilidad Además, las mayores ponderaciones son para los activos que han tenido un mayor incremento de precio a lo largo del año, banco santander aproximadamente aumentó el valor de su acción en un 25%, enel un 35% y cencoshopp un 10%, los gráficos sobre la variación se muestran a continuación, donde en general desde el 2022, los precios han ido a la alta. 
+
+Finalmente se ponderó un 40% de BSANTANDER para poder mitigar el riesgo, debido a que es una industria de bajo riesgo y posee el menor beta, por lo que si el mercado baja, esta no se verá tan afectada.
