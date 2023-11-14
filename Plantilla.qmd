@@ -247,3 +247,126 @@ A este portafolio se le invertirá 10 millones de pesos chilenos con las siguien
 Este portafolio con aversión al riesgo moderada-baja, se agregó un 40% de ponderación al activo más riesgoso (con mayor beta). Se ponderó un 20% de CENCOSHOPP dado que se espera que no tendrá una profunda volatilidad Además, las mayores ponderaciones son para los activos que han tenido un mayor incremento de precio a lo largo del año, banco santander aproximadamente aumentó el valor de su acción en un 25%, enel un 35% y cencoshopp un 10%, los gráficos sobre la variación se muestran a continuación, donde en general desde el 2022, los precios han ido a la alta. 
 
 Finalmente se ponderó un 40% de BSANTANDER para poder mitigar el riesgo, debido a que es una industria de bajo riesgo y posee el menor beta, por lo que si el mercado baja, esta no se verá tan afectada.
+
+HITO 2
+
+{python}
+
+K = 50
+r = 0.032
+sigma = 0.43
+vol = 0.43
+T = 1
+S = 52.5
+n = 100
+
+
+El valor de la acción se obtuvo de la bolsa de Santiago, el strike se estimó y para el sigma se calculó la volatibilidad de la acción. Con un periodo t de un año.
+
+{python}
+
+import numpy as np
+from scipy.stats import norm
+
+N = norm.cdf
+
+def BS_CALL(S, K, T, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    return S * N(d1) - K * np.exp(-r*T)* N(d2)
+
+def BS_PUT(S, K, T, r, sigma):
+    d1 = (np.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma* np.sqrt(T)
+    return K*np.exp(-r*T)*N(-d2) - S*N(-d1)
+
+call_price = BS_CALL(S, K, T, r, sigma)
+put_price = BS_PUT(S, K, T, r, sigma)
+
+print("Valor de la opción call:", call_price)
+print("Valor de la opción put:", put_price)
+
+
+Define Modelo adicional
+
+Para valorizar la opción se utilizó también un modelo adicional, este modelo sería el modelo binomial de formación de precios para valorar opciones. Para poder desarrollar este modelo de manera efectiva, se hizo una revisión de literatura científica, principalmente tres artículos:
+
+"Modelo binomial para la valoración de empresas y los efectos de la deuda: escudo fiscal y liquidación de la firma" por Journal of Economics, Finance & Administrative Science, Vol. 19, No. 36, 2014.
+
+"Apuntes de ingeniería financiera" por Carlos Forner, de la universidad de Alicante
+
+"Modelo Binomial de valuación de opciones" extraído del libro Hull.
+
+El modelo binomial es un modelo que nos permite analizar la variabilidad de la acción a través del tiempo, en donde el valor de la acción es denotado como S para un instante de tiempo T. Este valor es, según el modelo, una vez transcurrido el instante t, tiene dos opciones; tener un alza de precio o una baja de precio denotados comúnmente como Su (u siendo el factor de crecimiento) y Sd (d siendo el factor de decrecimiento), los cuales corresponden al paso uno en el árbol binomial. Siguiendo esta lógica, Su y Sd una vez transcurrido otro instante T, también tendrán dos opciones de alza o de baja y así sucesivamente para cada precio de la acción en determinado instante de tiempo, formándose el modelo binomial.
+
+El valor u viene denotado como : u = 1+g, siendo g la tasa de crecimiento esperado en T. mientras que el decrecimiento de la acción en el periodo T viene siendo denotado como d = 1/u.
+
+Por otro lado, las opciones son utilizadas como método de protección al riesgo para los accionistas y siguiendo esta idea, una opción call se utiliza para que un comprador de acciones esté protegido frente a un aumento de precios de la acción S. Aplicando el modelo binomial a este problema, se puede observar que se tienen dos escenarios posibles en un primer instante de tiempo, que la acción suba de precio o que baje. El accionista o comprador de acción, para tener menos riesgo, pactará un precio en el presente para el valor de la acción a futuro, este pacto se paga y se conoce como prima, y su valor es la diferencia de la acción en el futuro menos el precio de ejercicio en valor presente y si este valor es negativo la prima es cero. Esto mismo sucede para más instantes de tiempo, en los que el valor call de la opción en un periodo de t = n, debe tomar en consideración los valores de la opción en los periodos anteriores del árbol binomial.
+
+A continuación se presentará el modelo binomial a modo teórico:
+
+El valor s tiene una probabilidad implícita de p para subir a Su y en contraparte una probabilidad 1-p de bajar a Sd, las cuales serían probabilidad de éxito y fracaso través de un periodo de tiempo de t = [1,2,3….,n-1, n].
+
+Por otro lado la función de distribución binomial es:
+
+F(x) = px (1-p)^(n-x)
+
+Siendo p probabilidad de éxito y 1-p de fracaso, n la cantidad de eventos tomados y C(n,x) la combinatoria de n eventos, en relación a la fórmula de la potencia n de un binomio.
+
+{python}
+import numpy as np
+from scipy.stats import norm
+def binomial_option_pricing(S, K, T, r, vol, n, option_type='call'):
+    dt = T / n  # Paso de tiempo
+    u = np.exp(vol * np.sqrt(dt))  # Factor de aumento
+    d = 1 / u  # Factor de disminución
+    q = (np.exp(r * dt) - d) / (u - d)
+    stock_prices = np.zeros((n + 1, n + 1))
+    for i in range(n + 1):
+        for j in range(i + 1):
+            stock_prices[j, i] = S * (u ** (i - j)) * (d ** j)
+    option_values = np.zeros((n + 1, n + 1))
+    for j in range(n + 1):
+        if option_type == 'call':
+            option_values[j, n] = max(0, stock_prices[j, n] - K)
+        else:
+            option_values[j, n] = max(0, K - stock_prices[j, n])
+    for i in range(n - 1, -1, -1):
+        for j in range(i + 1):
+            if option_type == 'call':
+                option_values[j, i] = max(0, np.exp(-r * dt) * (q * option_values[j, i + 1] + (1 - q) * option_values[j + 1, i + 1]))
+            else:
+                option_values[j, i] = max(0, np.exp(-r * dt) * (q * option_values[j, i + 1] + (1 - q) * option_values[j + 1, i + 1]))
+
+    return option_values[0, 0]
+call_price = binomial_option_pricing(S, K, T, r, vol, n, option_type='call')
+put_price = binomial_option_pricing(S, K, T, r, vol, n, option_type='put')
+
+print("Valor de la opción call:", call_price)
+print("Valor de la opción put:", put_price)
+
+Análisis
+
+Utilizando el modelo de Black-Scholes se obtienen los siguientes valores de la opción:
+
+Valor de la opción call: 10.78 aproximado a dos decimales
+
+Valor de la opción put: 6.70 aproximado a dos decimales
+
+Por otro lado al utilizar el modelo binomial se obtienen los siguientes resultados para los valores call y put de la misa opción utilizando los mismos parámetros:
+
+Valor de la opción call: 10.80 aproximado a dos decimales
+
+Valor de la opción put: 6.72 aproximado a dos decimales
+
+Como se puede observar los resultados son muy similares tanto para los valores de call como los de put, existiendo una diferencia aproximada de tan solo 0.02 para los dos casos. Los resultados son muy similares y se debe a que el modelo binomial en la valorización de opciones converge al modelo Black-Scholes cuando "n" tiende a infinito. Para este caso en particular en el modelo binomial se utilizó un número n de eventos = 100, es por esto que el resultado se asemeja al de Black-Scholes y mientras se aumente el valor de n la diferencia será cada vez más pequeña.
+
+Parte grupal
+
+De los tres casos presentados se decidió replicar "Política de crédito de Braam Industries" para el activo Banco Santander Primero, para determinar las ventas anuales se considero la cantidad de activos que tenía el Banco, cual fue obtenido en el siguiente link https://banco.santander.cl/uploads/000/040/799/ca92bae1-dde8-4eef-b791-c5b9dcb4d51d/original/Santander_Memoria_2022_vf.pdf
+
+Los bancos comúnmente no tienen una tasa de incumplimiento, por ende, se consideró la tasa de morosidad. Los bancos hacen una diferenciación dependiendo del tipo de cliente. La siguiente tabla fue obtenida en https://banco.santander.cl/uploads/000/041/232/734f33e3-5145-4671-ae8b-7c592b1fb6fd/original/Management_commentary_032023.PDF Sin embargo, la CMF publicó la morosidad a 90 días donde no separa por los distintos tipos de deudores. Para efectos de este trabajo se consideró el valor de 2,17% que pertenece al total. El periodo de cuentas por cobrar se consideró 90 días. Para los costos administrativos se considerará el total de los gastos operacionales y este se dividió por la cantidad de activos y se multiplicó por 100 para tener el porcentaje.
+
+Para definir la tasa de interés se consideró la TPM actual la cual actualmente es de 9,5% anual, lo que equivale a 0,024867% interés diario. Por último, se consideró que los costos variables corresponden al 45% de las ventas anuales. La empresa debe decidir qué política de crédito utilizar, para esto se compara la situación actual con tres posibles escenarios hipotéticos, los cuales serían la opción 1, opción 2 y opción 3. Cada escenario tiene distintos valores de ventas, costos y tasas para así analizar qué política de crédito debe adoptar la empresa. Para esto se calcularon las ventas diarias, costos variables diarios, incumplimiento diario (en pesos), costos administrativos diarios y la tasa de interés que se debe descontar el flujo considerando la tasa de interés diaria y el periodo de cuentas por cobrar. Con estos datos se calculó el VPN para los 4 casos obteniendo que el periodo actual tiene la mejor política de crédito. Los resultados se muestran a continuación.
+
+Con respecto a la segunda pregunta, esta se omitió dado que la afirmación del enunciado es errónea, tanto en el ejemplo propuesto en el libro como en del trabajo presentado, las tasas de incumplimiento y costos administrativos en el caso 3 son mayores que el caso 2.
